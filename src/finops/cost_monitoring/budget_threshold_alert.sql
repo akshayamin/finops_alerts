@@ -1,0 +1,94 @@
+-- =============================================================================
+-- BUDGET THRESHOLD ALERT
+-- =============================================================================
+-- 
+-- Purpose: Monitor daily spending against budget thresholds
+-- Category: Cost Monitoring
+-- 
+-- This alert monitors daily cloud spending and triggers when:
+-- - Daily spending exceeds a specified threshold
+-- - Budget utilization reaches critical levels
+-- - Unusual cost spikes are detected
+-- 
+-- =============================================================================
+-- USAGE
+-- =============================================================================
+-- 
+-- Replace the following parameters:
+-- - YOUR_WAREHOUSE_ID: Your SQL warehouse ID
+-- - YOUR_EMAIL: Your email for notifications
+-- - BUDGET_THRESHOLD: Daily budget limit in dollars
+-- - COST_TABLE: Your cost tracking table
+-- 
+-- =============================================================================
+
+-- Example: Monitor daily AWS spending
+SELECT aa_catalog.dw_ops.create_alert(
+  display_name => 'daily_budget_threshold_alert',
+  query_text => '
+    SELECT 
+      SUM(cost_usd) as daily_cost
+    FROM your_cost_table 
+    WHERE date = CURRENT_DATE()
+      AND cloud_provider = ''AWS''
+  ',
+  warehouse_id => 'YOUR_WAREHOUSE_ID',
+  comparison_operator => 'GREATER_THAN',
+  threshold_value => 1000.0, -- $1000 daily budget
+  user_email => 'YOUR_EMAIL@company.com',
+  cron_schedule => '0 0 */1 * * ?', -- Every hour
+  source_display => 'daily_cost',
+  source_name => 'daily_cost',
+  parent_path => '/Workspace/Users/YOUR_USERNAME/finops_alerts/cost_monitoring'
+);
+
+-- Example: Monitor monthly budget utilization
+SELECT aa_catalog.dw_ops.create_alert(
+  display_name => 'monthly_budget_utilization_alert',
+  query_text => '
+    SELECT 
+      (SUM(cost_usd) / 5000.0) * 100 as budget_utilization_percent
+    FROM your_cost_table 
+    WHERE date >= DATE_TRUNC(''month'', CURRENT_DATE())
+      AND date <= CURRENT_DATE()
+  ',
+  warehouse_id => 'YOUR_WAREHOUSE_ID',
+  comparison_operator => 'GREATER_THAN',
+  threshold_value => 80.0, -- 80% of monthly budget
+  user_email => 'YOUR_EMAIL@company.com',
+  cron_schedule => '0 0 12 */1 * ?', -- Daily at noon
+  source_display => 'budget_utilization_percent',
+  source_name => 'budget_utilization_percent',
+  parent_path => '/Workspace/Users/YOUR_USERNAME/finops_alerts/cost_monitoring'
+);
+
+-- Example: Detect cost spikes (compare to 7-day average)
+SELECT aa_catalog.dw_ops.create_alert(
+  display_name => 'cost_spike_detection_alert',
+  query_text => '
+    WITH daily_costs AS (
+      SELECT 
+        date,
+        SUM(cost_usd) as daily_cost
+      FROM your_cost_table 
+      WHERE date >= DATE_SUB(CURRENT_DATE(), 7)
+      GROUP BY date
+    ),
+    avg_cost AS (
+      SELECT AVG(daily_cost) as avg_daily_cost
+      FROM daily_costs
+      WHERE date < CURRENT_DATE()
+    )
+    SELECT 
+      (SELECT daily_cost FROM daily_costs WHERE date = CURRENT_DATE()) / 
+      (SELECT avg_daily_cost FROM avg_cost) as cost_spike_ratio
+  ',
+  warehouse_id => 'YOUR_WAREHOUSE_ID',
+  comparison_operator => 'GREATER_THAN',
+  threshold_value => 2.0, -- 2x the average daily cost
+  user_email => 'YOUR_EMAIL@company.com',
+  cron_schedule => '0 0 18 */1 * ?', -- Daily at 6 PM
+  source_display => 'cost_spike_ratio',
+  source_name => 'cost_spike_ratio',
+  parent_path => '/Workspace/Users/YOUR_USERNAME/finops_alerts/cost_monitoring'
+); 

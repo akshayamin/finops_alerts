@@ -1,0 +1,60 @@
+# =============================================================================
+# FUNCTIONS DEPLOYMENT CONFIGURATION
+# =============================================================================
+# 
+# Purpose: Deploy only the base alert creation function
+# 
+# This configuration is used when you want to deploy only the core function
+# without any specific FinOps alerts. Useful for:
+# - Initial setup and testing
+# - Function updates only
+# - Custom alert development
+# 
+# =============================================================================
+
+bundle:
+  name: finops_alerts_functions
+  version: 1.0.0
+  description: "Core alert creation function for FinOps monitoring"
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_dev"
+      schema_name: "functions"
+      warehouse_id: ${var.dev_warehouse_id}
+      
+  staging:
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_staging"
+      schema_name: "functions"
+      warehouse_id: ${var.staging_warehouse_id}
+      
+  prod:
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_prod"
+      schema_name: "functions"
+      warehouse_id: ${var.prod_warehouse_id}
+
+# SQL Functions to deploy
+functions:
+  - name: create_alert
+    path: src/functions/create_alert.sql
+    catalog: ${bundle.targets.${bundle.target}.variables.catalog_name}
+    schema: ${bundle.targets.${bundle.target}.variables.schema_name}
+    comment: "Creates a Databricks alert with parameterized configuration"
+
+# Deployment validation
+validation:
+  required_variables:
+    - databricks_host
+    - dev_warehouse_id
+    - staging_warehouse_id
+    - prod_warehouse_id 

@@ -1,0 +1,118 @@
+# =============================================================================
+# FINOPS ALERTS - DABs CONFIGURATION
+# =============================================================================
+# 
+# Purpose: Main configuration file for deploying FinOps alerts using DABs
+# 
+# This configuration defines:
+# - Bundle metadata and versioning
+# - Target environments (dev, staging, prod)
+# - Resource configurations
+# - Deployment options
+# 
+# =============================================================================
+
+bundle:
+  name: finops_alerts
+  version: 1.0.0
+  description: "FinOps monitoring and alerting solution for Databricks"
+
+# Target environments
+targets:
+  dev:
+    default: true
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_dev"
+      schema_name: "alerts"
+      warehouse_id: ${var.dev_warehouse_id}
+      alert_owner: ${var.dev_alert_owner}
+      notification_email: ${var.dev_notification_email}
+    
+  staging:
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_staging"
+      schema_name: "alerts"
+      warehouse_id: ${var.staging_warehouse_id}
+      alert_owner: ${var.staging_alert_owner}
+      notification_email: ${var.staging_notification_email}
+    
+  prod:
+    workspace:
+      host: ${var.databricks_host}
+    variables:
+      catalog_name: "finops_prod"
+      schema_name: "alerts"
+      warehouse_id: ${var.prod_warehouse_id}
+      alert_owner: ${var.prod_alert_owner}
+      notification_email: ${var.prod_notification_email}
+
+# Resource configurations
+resources:
+  # SQL Functions
+  functions:
+    - name: create_alert_function
+      path: src/functions/create_alert.sql
+      catalog: ${bundle.targets.${bundle.target}.variables.catalog_name}
+      schema: ${bundle.targets.${bundle.target}.variables.schema_name}
+      
+  # FinOps Alerts - Cost Monitoring
+  cost_alerts:
+    - name: budget_threshold_alert
+      path: src/finops/cost_monitoring/budget_threshold_alert.sql
+      enabled: ${var.enable_cost_alerts}
+      catalog: ${bundle.targets.${bundle.target}.variables.catalog_name}
+      schema: ${bundle.targets.${bundle.target}.variables.schema_name}
+      
+  # FinOps Alerts - Usage Monitoring  
+  usage_alerts:
+    - name: cluster_utilization_alert
+      path: src/finops/usage_monitoring/cluster_utilization_alert.sql
+      enabled: ${var.enable_usage_alerts}
+      catalog: ${bundle.targets.${bundle.target}.variables.catalog_name}
+      schema: ${bundle.targets.${bundle.target}.variables.schema_name}
+      
+  # FinOps Alerts - Performance Monitoring
+  performance_alerts:
+    - name: query_performance_alert
+      path: src/finops/performance/query_performance_alert.sql
+      enabled: ${var.enable_performance_alerts}
+      catalog: ${bundle.targets.${bundle.target}.variables.catalog_name}
+      schema: ${bundle.targets.${bundle.target}.variables.schema_name}
+
+# Deployment options
+deploy_options:
+  # Function deployment
+  deploy_functions: true
+  
+  # Alert deployment (can be selective)
+  deploy_cost_alerts: true
+  deploy_usage_alerts: true
+  deploy_performance_alerts: true
+  
+  # Customization options
+  custom_warehouse_id: null  # Override default warehouse
+  custom_alert_owner: null   # Override default owner
+  custom_notification_email: null  # Override default email
+
+# Validation rules
+validation:
+  required_variables:
+    - databricks_host
+    - dev_warehouse_id
+    - staging_warehouse_id
+    - prod_warehouse_id
+    - dev_alert_owner
+    - staging_alert_owner
+    - prod_alert_owner
+    - dev_notification_email
+    - staging_notification_email
+    - prod_notification_email
+  
+  optional_variables:
+    - enable_cost_alerts
+    - enable_usage_alerts
+    - enable_performance_alerts 
