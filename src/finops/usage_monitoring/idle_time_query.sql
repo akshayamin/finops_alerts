@@ -78,7 +78,7 @@ SELECT
         WHEN c.NumberOfClustersOn > 0 AND q.NumberOfQueries = 0 
         THEN NumberOfClustersOn 
         ELSE 0 
-      END) AS IdleMinute
+      END) AS idle_cluster_count
 FROM clusters_per_min c
 INNER JOIN queries_per_min q
   ON c.event_minute = q.event_minute;
