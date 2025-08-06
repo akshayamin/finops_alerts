@@ -49,7 +49,7 @@
 -- 
 -- =============================================================================
 
-create or replace function create_alert(
+create or replace function aa_catalog.dw_ops.create_alert(
   -- Required parameters
   display_name string,
   query_text string, -- Example: 'select count(*) as ct from my_table'
@@ -80,7 +80,7 @@ comment 'Creates a Databricks alert with parameterized configuration. Allows DBA
 return
 select
   http_request(
-    conn => 'databricks_api',
+    conn => 'aa_databricks_api',
     method => 'POST',
     path => '2.0/alerts',
     json => concat(
