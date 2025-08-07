@@ -24,6 +24,11 @@ environments:
     # Workspace settings
     parent_path_root: "/Workspace/Users/akshay.amin@databricks.com/"
     
+    # Global query settings (can be overridden per alert)
+    query_settings:
+      time_interval_hours: 26
+      default_statement_type: "SELECT"
+    
   staging:
     # Database settings
     catalog_name: "aa_catalog"
@@ -38,6 +43,11 @@ environments:
     # Workspace settings
     parent_path_root: "/Workspace/Users/finops-staging@company.com/"  # CHANGE THIS
     
+    # Global query settings
+    query_settings:
+      time_interval_hours: 26
+      default_statement_type: "SELECT"
+    
   prod:
     # Database settings
     catalog_name: "aa_catalog"
@@ -51,6 +61,11 @@ environments:
     
     # Workspace settings
     parent_path_root: "/Workspace/Users/finops-prod@company.com/"  # CHANGE THIS
+    
+    # Global query settings
+    query_settings:
+      time_interval_hours: 26
+      default_statement_type: "SELECT"
 
 # Deployment configuration
 # CHANGE THESE VALUES TO CONTROL WHICH ALERTS TO DEPLOY

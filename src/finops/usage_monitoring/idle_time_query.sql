@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW aa_catalog.dw_ops.vw_idle_clusters_summary AS
+CREATE OR REPLACE VIEW {{CATALOG_NAME}}.{{SCHEMA_NAME}}.vw_idle_clusters_summary AS
 WITH queries_per_min AS (
   WITH raw_scaling AS (
     SELECT 
@@ -11,8 +11,8 @@ WITH queries_per_min AS (
           date_trunc('MINUTE', w.start_time) AS start_min, 
           date_trunc('MINUTE', w.end_time) AS end_min
         FROM system.query.history w
-        WHERE w.compute.warehouse_id = '4b9b953939869799'
-          AND w.start_time >= current_timestamp() - interval '26 hours'
+        WHERE w.compute.warehouse_id = '{{WAREHOUSE_ID}}'
+          AND w.start_time >= current_timestamp() - interval '{{TIME_INTERVAL}} hours'
       )
       SELECT 
         statement_id, 
@@ -48,7 +48,7 @@ clusters_per_min AS (
       date_trunc('MINUTE', event_time) AS event_minute,
       MAX(w.cluster_count) AS clusters
     FROM system.compute.warehouse_events w
-    WHERE warehouse_id = '4b9b953939869799'
+    WHERE warehouse_id = '{{WAREHOUSE_ID}}'
       AND event_type IN ('RUNNING', 'SCALED_UP', 'SCALED_DOWN', 'STOPPED')
     GROUP BY date_trunc('MINUTE', event_time)
   ),

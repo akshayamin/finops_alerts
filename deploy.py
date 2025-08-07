@@ -40,6 +40,7 @@ class AlertConfig:
     source_name: str
     parent_path_suffix: str
     description: str
+    query_settings: Optional[Dict[str, Any]] = None
 
 @dataclass
 class EnvironmentConfig:
@@ -118,7 +119,8 @@ class FinOpsDeployer:
             source_display=alert_config.get('source_display'),
             source_name=alert_config.get('source_name'),
             parent_path_suffix=alert_config.get('parent_path_suffix'),
-            description=alert_config.get('description', 'No description')
+            description=alert_config.get('description', 'No description'),
+            query_settings=alert_config.get('query_settings')
         )
     
     def _get_deployment_alerts(self) -> List[str]:
@@ -291,26 +293,53 @@ select
         
         return content
     
-    def _replace_placeholders(self, sql_content: str, env_config: EnvironmentConfig) -> str:
-        """Replace placeholders in SQL content."""
+    def _replace_template_variables(self, sql_content: str, env_config: EnvironmentConfig, alert_config: AlertConfig, alert_name: str, environment: str) -> str:
+        """Replace template variables in SQL content."""
+        # Get query settings (global or alert-specific)
+        global_query_settings = self.config.get('environments', {}).get(environment, {}).get('query_settings', {})
+        alert_query_settings = alert_config.query_settings if alert_config.query_settings else {}
+        
+        # Merge settings (alert-specific overrides global)
+        query_settings = {**global_query_settings, **alert_query_settings}
+        
+        # Build replacements dictionary
         replacements = {
-            'aa_catalog.dw_ops': f'{env_config.catalog_name}.{env_config.schema_name}',
-            "'4b9b953939869799'": f"'{env_config.warehouse_id}'",
-            "'akshay.amin@databricks.com'": f"'{env_config.user_email}'"
+            '{{CATALOG_NAME}}': env_config.catalog_name,
+            '{{SCHEMA_NAME}}': env_config.schema_name,
+            '{{WAREHOUSE_ID}}': env_config.warehouse_id,
+            '{{USER_EMAIL}}': env_config.user_email,
+            '{{PARENT_PATH_ROOT}}': env_config.parent_path_root,
+            '{{ALERT_NAME}}': alert_name,
+            '{{THRESHOLD_VALUE}}': str(alert_config.threshold_value),
+            '{{CRON_SCHEDULE}}': alert_config.cron_schedule,
+            '{{SOURCE_DISPLAY}}': alert_config.source_display,
+            '{{SOURCE_NAME}}': alert_config.source_name,
+            '{{PARENT_PATH_SUFFIX}}': alert_config.parent_path_suffix,
+            '{{TIME_INTERVAL}}': str(query_settings.get('time_interval_hours', 26)),
+            '{{STATEMENT_TYPE}}': query_settings.get('default_statement_type', 'SELECT')
         }
         
-        for old, new in replacements.items():
-            sql_content = sql_content.replace(old, new)
+        # Replace all template variables
+        for template_var, value in replacements.items():
+            sql_content = sql_content.replace(template_var, value)
         
         return sql_content
     
-    def _generate_alert_sql(self, env_config: EnvironmentConfig, alert_config: AlertConfig) -> str:
+    def _generate_alert_sql(self, env_config: EnvironmentConfig, alert_config: AlertConfig, alert_name: str, environment: str) -> str:
         """Generate SQL for creating an alert."""
-        parent_path = f"{env_config.parent_path_root}{alert_config.parent_path_suffix}"
-        
-        return f"""SELECT {env_config.catalog_name}.{env_config.schema_name}.create_alert(
-  display_name => '{alert_config.name}_alert',
-  query_text => 'select * from {env_config.catalog_name}.{env_config.schema_name}.{alert_config.name}_summary_vw',
+        # Read the alert template file
+        alert_file = f"src/finops/{alert_config.category}/{alert_name}_alert.sql"
+        try:
+            alert_sql = self._read_sql_file(alert_file)
+            alert_sql = self._replace_template_variables(alert_sql, env_config, alert_config, alert_name, environment)
+            return alert_sql
+        except DeploymentError as e:
+            # Fallback to generating SQL directly if template file not found
+            parent_path = f"{env_config.parent_path_root}{alert_config.parent_path_suffix}"
+            
+            return f"""SELECT {env_config.catalog_name}.{env_config.schema_name}.create_alert(
+  display_name => '{alert_name}_alert',
+  query_text => 'select * from {env_config.catalog_name}.{env_config.schema_name}.{alert_name}_summary_vw',
   warehouse_id => '{env_config.warehouse_id}',
   comparison_operator => 'GREATER_THAN',
   threshold_value => {alert_config.threshold_value},
@@ -380,7 +409,7 @@ select
                 query_file = f"src/finops/{alert_config.category}/{alert_name}_query.sql"
                 try:
                     query_sql = self._read_sql_file(query_file)
-                    query_sql = self._replace_placeholders(query_sql, env_config)
+                    query_sql = self._replace_template_variables(query_sql, env_config, alert_config, alert_name, target)
                     
                     syntax = Syntax(query_sql, "sql", theme="monokai")
                     self.console.print(syntax)
@@ -400,7 +429,7 @@ select
                 
                 self.console.print(f"🔔 Deploying alert for: {alert_name}")
                 
-                alert_sql = self._generate_alert_sql(env_config, alert_config)
+                alert_sql = self._generate_alert_sql(env_config, alert_config, alert_name, target)
                 syntax = Syntax(alert_sql, "sql", theme="monokai")
                 self.console.print(syntax)
                 self.console.print()

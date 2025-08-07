@@ -18,15 +18,15 @@
 -- 
 -- =============================================================================
 -- Example: Monitor idle time on warehouses
-SELECT aa_catalog.dw_ops.create_alert(
-  display_name => 'idle_clusters_alert',
-  query_text => 'select * from aa_catalog.dw_ops.vw_idle_clusters_summary',
-  warehouse_id => '4b9b953939869799',
+SELECT {{CATALOG_NAME}}.{{SCHEMA_NAME}}.create_alert(
+  display_name => '{{ALERT_NAME}}_alert',
+  query_text => 'select * from {{CATALOG_NAME}}.{{SCHEMA_NAME}}.{{ALERT_NAME}}_summary_vw',
+  warehouse_id => '{{WAREHOUSE_ID}}',
   comparison_operator => 'GREATER_THAN',
-  threshold_value => 10, -- Alert if any warehouses are idle for more than 10 minutes
-  user_email => 'akshay.amin@databricks.com',
-  cron_schedule => '0 0 */1 * * ?', -- Every hour
-  source_display => 'idle_cluster_count',
-  source_name => 'idle_cluster_count',
-  parent_path => '/Workspace/Users/akshay.amin@databricks.com/finops_alerts/usage_monitoring'
+  threshold_value => {{THRESHOLD_VALUE}},
+  user_email => '{{USER_EMAIL}}',
+  cron_schedule => '{{CRON_SCHEDULE}}',
+  source_display => '{{SOURCE_DISPLAY}}',
+  source_name => '{{SOURCE_NAME}}',
+  parent_path => '{{PARENT_PATH_ROOT}}{{PARENT_PATH_SUFFIX}}'
 );

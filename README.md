@@ -4,7 +4,13 @@ A comprehensive collection of SQL functions and alert configurations for Databri
 
 ## Overview
 
-This repository contains SQL functions and configurations for creating Databricks alerts using the [Databricks SQL Alerts API](https://docs.databricks.com/aws/en/sql/user/alerts/). The solution provides a flexible, parameterized approach to creating monitoring alerts for FinOps use cases.
+This repository contains SQL functions and configurations for creating Databricks alerts using the [Databricks SQL Alerts API](https://docs.databricks.com/aws/en/sql/user/alerts/). The solution provides a **template-based, configuration-driven approach** to creating monitoring alerts for FinOps use cases.
+
+### 🎯 Key Benefits
+- **🔧 Template Variables**: SQL files use `{{VARIABLE}}` placeholders that get replaced during deployment
+- **⚙️ Configuration-Driven**: All parameters (warehouse IDs, emails, thresholds) come from YAML config
+- **🌍 Environment-Agnostic**: Same SQL templates work for dev, staging, and production
+- **🚀 Modern Python Tool**: Beautiful CLI with validation and error handling
 
 ## Repository Structure
 
@@ -28,10 +34,12 @@ finops_alerts/
 
 ## Features
 
-- **Parameterized Alert Creation**: Create alerts with flexible configuration options
-- **FinOps Focused**: Pre-built alert templates for cost, usage, and performance monitoring
-- **Modern Python Tool**: Clean, cross-platform deployment tool with beautiful UI
-- **Comprehensive Documentation**: Detailed examples and usage guides
+- **🔧 Template-Based SQL**: SQL files use `{{VARIABLE}}` placeholders for complete parameterization
+- **⚙️ Configuration-Driven**: All settings (warehouse IDs, emails, thresholds) managed via YAML
+- **🌍 Environment-Agnostic**: Same templates work across dev, staging, and production
+- **🚀 Modern Python Tool**: Beautiful CLI with validation, error handling, and colorful output
+- **📊 FinOps Focused**: Pre-built alert templates for cost, usage, and performance monitoring
+- **📚 Comprehensive Documentation**: Detailed examples and usage guides
 
 ## Quick Start
 
@@ -64,20 +72,30 @@ python3 deploy.py deploy prod config/deployment-prod.yaml
 # Copy and paste the SQL from deploy.py output into Databricks SQL Editor
 ```
 
-### 4. Create Custom Alerts
+### 3. Create Custom Alerts
+
+The system uses **template variables** for complete flexibility:
 
 ```sql
--- Example: Monitor high error rates
-SELECT aa_catalog.dw_ops.create_alert(
-  display_name => 'high_error_rate_alert',
-  query_text => 'SELECT COUNT(*) as error_count FROM error_logs WHERE error_date >= CURRENT_DATE()',
-  warehouse_id => 'your-warehouse-id',
-  comparison_operator => 'GREATER_THAN',
-  threshold_value => 10,
-  user_email => 'your-email@company.com',
-  cron_schedule => '0 */5 * * * ?'
+-- Query file: src/finops/your_category/your_alert_query.sql
+CREATE OR REPLACE VIEW {{CATALOG_NAME}}.{{SCHEMA_NAME}}.your_alert_summary_vw AS
+SELECT COUNT(*) as error_count 
+FROM error_logs 
+WHERE error_date >= CURRENT_DATE() - interval '{{TIME_INTERVAL}} hours'
+  AND warehouse_id = '{{WAREHOUSE_ID}}';
+
+-- Alert file: src/finops/your_category/your_alert_alert.sql
+SELECT {{CATALOG_NAME}}.{{SCHEMA_NAME}}.create_alert(
+  display_name => '{{ALERT_NAME}}_alert',
+  query_text => 'select * from {{CATALOG_NAME}}.{{SCHEMA_NAME}}.{{ALERT_NAME}}_summary_vw',
+  warehouse_id => '{{WAREHOUSE_ID}}',
+  threshold_value => {{THRESHOLD_VALUE}},
+  user_email => '{{USER_EMAIL}}',
+  cron_schedule => '{{CRON_SCHEDULE}}'
 );
 ```
+
+**All `{{VARIABLE}}` placeholders get automatically replaced with values from your YAML configuration!**
 
 ## Documentation
 
@@ -102,16 +120,37 @@ deployment:
 
 environments:
   dev:
+    # Database settings
+    catalog_name: "aa_catalog"
+    schema_name: "dw_ops"
+    
+    # Infrastructure settings
     warehouse_id: "4b9b953939869799"
+    
+    # Notification settings
     user_email: "akshay.amin@databricks.com"
+    
+    # Workspace settings
     parent_path_root: "/Workspace/Users/akshay.amin@databricks.com/"
+    
+    # Global query settings (can be overridden per alert)
+    query_settings:
+      time_interval_hours: 26
+      default_statement_type: "SELECT"
     
 alerts:
   idle_time:
     enabled: true                    # Enable/disable this alert
+    category: "usage_monitoring"
     threshold_value: 10
     cron_schedule: "0 0 */1 * * ?"  # Every hour
+    source_display: "idle_cluster_count"
+    source_name: "idle_cluster_count"
+    parent_path_suffix: "finops_alerts/usage_monitoring"
     description: "Monitors idle cluster count"
+    # Optional: Override global query settings
+    # query_settings:
+    #   time_interval_hours: 48  # Override default 26 hours
 ```
 
 #### `config/deployment-prod.yaml` (Production Example)
@@ -155,8 +194,28 @@ alerts:
 ## Alert Structure
 
 Each FinOps alert consists of two files:
-- `_query.sql`: Creates a view with the monitoring query
-- `_alert.sql`: Creates the alert using the view
+- `_query.sql`: Creates a view with the monitoring query (uses template variables)
+- `_alert.sql`: Creates the alert using the view (uses template variables)
+
+### Template Variables
+
+The SQL files use template variables that get replaced during deployment:
+
+| **Template Variable** | **Purpose** | **Config Source** |
+|----------------------|-------------|-------------------|
+| `{{CATALOG_NAME}}` | Database catalog | `environments.[env].catalog_name` |
+| `{{SCHEMA_NAME}}` | Database schema | `environments.[env].schema_name` |
+| `{{WAREHOUSE_ID}}` | SQL warehouse ID | `environments.[env].warehouse_id` |
+| `{{USER_EMAIL}}` | Notification email | `environments.[env].user_email` |
+| `{{PARENT_PATH_ROOT}}` | Workspace path root | `environments.[env].parent_path_root` |
+| `{{ALERT_NAME}}` | Alert name | From alert configuration |
+| `{{THRESHOLD_VALUE}}` | Alert threshold | `alerts.[alert].threshold_value` |
+| `{{CRON_SCHEDULE}}` | Evaluation schedule | `alerts.[alert].cron_schedule` |
+| `{{TIME_INTERVAL}}` | Query time window | `environments.[env].query_settings.time_interval_hours` |
+| `{{STATEMENT_TYPE}}` | SQL statement type | `environments.[env].query_settings.default_statement_type` |
+| `{{SOURCE_DISPLAY}}` | Column display name | `alerts.[alert].source_display` |
+| `{{SOURCE_NAME}}` | Column API name | `alerts.[alert].source_name` |
+| `{{PARENT_PATH_SUFFIX}}` | Subfolder path | `alerts.[alert].parent_path_suffix` |
 
 ### Available Alerts
 
@@ -176,9 +235,34 @@ Each FinOps alert consists of two files:
 
 To add a new alert:
 
-1. Create the query file: `src/finops/[category]/[alert_name]_query.sql`
-2. Create the alert file: `src/finops/[category]/[alert_name]_alert.sql`
-3. Add configuration to your config file:
+1. **Create the query file**: `src/finops/[category]/[alert_name]_query.sql`
+   ```sql
+   CREATE OR REPLACE VIEW {{CATALOG_NAME}}.{{SCHEMA_NAME}}.[alert_name]_summary_vw AS
+   SELECT 
+     your_metric_column
+   FROM your_table
+   WHERE compute.warehouse_id = '{{WAREHOUSE_ID}}'
+     AND start_time >= current_timestamp() - interval '{{TIME_INTERVAL}} hours'
+     AND statement_type = '{{STATEMENT_TYPE}}';
+   ```
+
+2. **Create the alert file**: `src/finops/[category]/[alert_name]_alert.sql`
+   ```sql
+   SELECT {{CATALOG_NAME}}.{{SCHEMA_NAME}}.create_alert(
+     display_name => '{{ALERT_NAME}}_alert',
+     query_text => 'select * from {{CATALOG_NAME}}.{{SCHEMA_NAME}}.{{ALERT_NAME}}_summary_vw',
+     warehouse_id => '{{WAREHOUSE_ID}}',
+     comparison_operator => 'GREATER_THAN',
+     threshold_value => {{THRESHOLD_VALUE}},
+     user_email => '{{USER_EMAIL}}',
+     cron_schedule => '{{CRON_SCHEDULE}}',
+     source_display => '{{SOURCE_DISPLAY}}',
+     source_name => '{{SOURCE_NAME}}',
+     parent_path => '{{PARENT_PATH_ROOT}}{{PARENT_PATH_SUFFIX}}'
+   );
+   ```
+
+3. **Add configuration to your config file**:
    ```yaml
    alerts:
      your_alert_name:
@@ -190,8 +274,12 @@ To add a new alert:
        source_name: "your_column_name"
        parent_path_suffix: "finops_alerts/your_category"
        description: "A brief description of your alert"
+       # Optional: Override global query settings
+       query_settings:
+         time_interval_hours: 48  # Override default 26 hours
    ```
-4. Add to deployment list:
+
+4. **Add to deployment list**:
    ```yaml
    deployment:
      alerts_to_deploy:
@@ -235,16 +323,24 @@ To add a new alert:
 The Python deployment tool (`deploy.py`) provides a modern, cross-platform solution for deploying FinOps alerts:
 
 ### Features
-- **Beautiful UI**: Rich, colorful output with tables and syntax highlighting
-- **Configuration Validation**: Comprehensive validation of YAML configuration
-- **Error Handling**: Robust error handling with clear error messages
-- **Cross-Platform**: Works on Windows, Mac, and Linux
-- **Interactive**: Confirms deployment before proceeding
+- **🔧 Template Variable Replacement**: Automatically replaces `{{VARIABLE}}` placeholders with config values
+- **🎨 Beautiful UI**: Rich, colorful output with tables and syntax highlighting
+- **✅ Configuration Validation**: Comprehensive validation of YAML configuration
+- **🛡️ Error Handling**: Robust error handling with clear error messages
+- **🌍 Cross-Platform**: Works on Windows, Mac, and Linux
+- **🤝 Interactive**: Confirms deployment before proceeding
 
 ### Commands
 - `list-alerts`: Display all available alerts with their status
 - `validate`: Validate configuration file for errors
-- `deploy`: Deploy alerts to specified environment
+- `deploy`: Deploy alerts to specified environment (with template variable replacement)
+
+### Template Variable Replacement
+During deployment, the tool automatically replaces template variables:
+- `{{WAREHOUSE_ID}}` → Your warehouse ID from config
+- `{{USER_EMAIL}}` → Your email from config
+- `{{THRESHOLD_VALUE}}` → Alert threshold from config
+- And many more...
 
 For detailed examples, see [examples.md](docs/examples.md).
 
