@@ -1,0 +1,10 @@
+# FinOps Alerts Deployment Tool Dependencies
+# =========================================
+
+# Core dependencies
+PyYAML>=6.0
+click>=8.0.0
+rich>=13.0.0
+
+# Optional: For better YAML validation
+jsonschema>=4.0.0 

@@ -1,0 +1,104 @@
+# =============================================================================
+# FINOPS ALERTS DEPLOYMENT CONFIGURATION (CLEAN VERSION)
+# =============================================================================
+# 
+# Purpose: Simplified configuration for FinOps alerts deployment
+# Usage: ./deploy_alerts_config.sh dev config/deployment-clean.yaml "['queue_time_percentage', 'idle_time']"
+# 
+# =============================================================================
+
+# Environment-specific configurations
+# CHANGE THESE VALUES FOR YOUR ENVIRONMENT
+environments:
+  dev:
+    # Database settings
+    catalog_name: "aa_catalog"
+    schema_name: "dw_ops_2"
+    
+    # Infrastructure settings
+    warehouse_id: "4b9b953939869799"
+    
+    # Notification settings
+    user_email: "akshay.amin@databricks.com"
+    
+    # Workspace settings
+    parent_path_root: "/Workspace/Users/akshay.amin@databricks.com/"
+    
+  staging:
+    # Database settings
+    catalog_name: "aa_catalog"
+    schema_name: "dw_ops"
+    
+    # Infrastructure settings
+    warehouse_id: "staging-warehouse-id-12345"  # CHANGE THIS
+    
+    # Notification settings
+    user_email: "finops-staging@company.com"  # CHANGE THIS
+    
+    # Workspace settings
+    parent_path_root: "/Workspace/Users/finops-staging@company.com/"  # CHANGE THIS
+    
+  prod:
+    # Database settings
+    catalog_name: "aa_catalog"
+    schema_name: "dw_ops"
+    
+    # Infrastructure settings
+    warehouse_id: "prod-warehouse-id-67890"  # CHANGE THIS
+    
+    # Notification settings
+    user_email: "finops-prod@company.com"  # CHANGE THIS
+    
+    # Workspace settings
+    parent_path_root: "/Workspace/Users/finops-prod@company.com/"  # CHANGE THIS
+
+# Deployment configuration
+# CHANGE THESE VALUES TO CONTROL WHICH ALERTS TO DEPLOY
+deployment:
+  # List of alerts to deploy (only enabled alerts will be deployed)
+  alerts_to_deploy:
+    - idle_time
+    - queue_time_percentage
+    # - daily_spend  # Uncomment to include this alert
+
+# Available alerts configuration
+# CHANGE THESE VALUES TO CUSTOMIZE ALERT BEHAVIOR
+alerts:
+  # Performance Monitoring
+  queue_time_percentage:
+    enabled: true                    # Set to false to disable this alert
+    category: "performance"
+    threshold_value: 15              # Alert when queue time > 15%
+    cron_schedule: "0 0 */1 * * ?"  # Every hour
+    source_display: "queue_time_percentage"
+    source_name: "queue_time_percentage"
+    parent_path_suffix: "finops_alerts/performance"
+    description: "Monitors query queue time percentage"
+    
+  # Usage Monitoring
+  idle_time:
+    enabled: true                    # Set to false to disable this alert
+    category: "usage_monitoring"
+    threshold_value: 10              # Alert when idle clusters > 10
+    cron_schedule: "0 0 */1 * * ?"  # Every hour
+    source_display: "idle_cluster_count"
+    source_name: "idle_cluster_count"
+    parent_path_suffix: "finops_alerts/usage_monitoring"
+    description: "Monitors idle cluster count"
+    
+  # Cost Monitoring
+  daily_spend:
+    enabled: false                   # Set to true to enable this alert
+    category: "cost_monitoring"
+    threshold_value: 1000.0          # Alert when daily spend > $1000
+    cron_schedule: "0 0 */1 * * ?"  # Every hour
+    source_display: "daily_cost_usd"
+    source_name: "daily_cost_usd"
+    parent_path_suffix: "finops_alerts/cost_monitoring"
+    description: "Monitors daily spending"
+
+# Function configuration (usually don't change these)
+function:
+  name: "create_alert"
+  connection: "aa_databricks_api"
+  api_path: "2.0/alerts" 

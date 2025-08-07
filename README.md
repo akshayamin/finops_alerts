@@ -11,6 +11,10 @@ This repository contains SQL functions and configurations for creating Databrick
 ```
 finops_alerts/
 ├── README.md                    # This file
+├── deploy.py                    # Python deployment tool
+├── requirements.txt             # Python dependencies
+├── config/                      # Configuration files
+│   └── deployment.yaml          # Main deployment configuration
 ├── src/                         # Source code
 │   ├── functions/               # SQL functions
 │   │   └── create_alert.sql     # Base alert creation function
@@ -18,23 +22,16 @@ finops_alerts/
 │       ├── cost_monitoring/     # Cost-related alerts
 │       ├── usage_monitoring/    # Usage-related alerts
 │       └── performance/         # Performance-related alerts
-├── deployment/                  # Deployment artifacts
-│   ├── dabs/                    # DABs configuration
-│   │   ├── config.yaml          # Main deployment config
-│   │   ├── functions.yaml       # Functions deployment config
-│   │   └── alerts.yaml          # Alerts deployment config
-│   └── scripts/                 # Deployment scripts
 └── docs/                        # Documentation
-    ├── examples.md              # Usage examples
-    └── deployment.md            # Deployment guide
+    └── examples.md              # Usage examples
 ```
 
 ## Features
 
 - **Parameterized Alert Creation**: Create alerts with flexible configuration options
 - **FinOps Focused**: Pre-built alert templates for cost, usage, and performance monitoring
-- **DABs Integration**: Automated deployment using Databricks Asset Bundles
-- **Comprehensive Documentation**: Detailed examples and deployment guides
+- **Modern Python Tool**: Clean, cross-platform deployment tool with beautiful UI
+- **Comprehensive Documentation**: Detailed examples and usage guides
 
 ## Quick Start
 
@@ -60,24 +57,11 @@ python3 deploy.py deploy prod config/deployment-prod.yaml
 # config/deployment-dev.yaml, config/deployment-prod.yaml, etc.
 ```
 
-### 2. Shell Script Deployment (Legacy)
+### 2. Manual Deployment
 
 ```bash
-# List available alerts
-./deploy_alerts_config.sh --list-alerts config/deployment.yaml
-
-# Deploy with configuration file
-./deploy_alerts_config.sh dev config/deployment.yaml
-
-# Deploy specific alerts (hardcoded parameters)
-./deploy_alerts.sh dev "['queue_time_percentage', 'idle_time']"
-```
-
-### 3. Manual Deployment
-
-```bash
-# Deploy just the base function
-./deploy_simple.sh
+# Deploy just the base function manually
+# Copy and paste the SQL from deploy.py output into Databricks SQL Editor
 ```
 
 ### 4. Create Custom Alerts
@@ -98,8 +82,8 @@ SELECT aa_catalog.dw_ops.create_alert(
 ## Documentation
 
 - [Databricks SQL Alerts Documentation](https://docs.databricks.com/aws/en/sql/user/alerts/)
-- [Databricks Asset Bundles (DABs)](https://docs.databricks.com/dev-tools/bundles/index.html)
 - [Databricks SQL Functions](https://docs.databricks.com/sql/language-manual/sql-ref-functions-builtin.html)
+- [Examples](docs/examples.md) - Detailed usage examples
 
 ## Configuration
 
@@ -163,6 +147,10 @@ alerts:
 | `parent_path_root` | Workspace path root | `"/Workspace/Users/finops/"` |
 | `threshold_value` | Alert threshold | `10` |
 | `cron_schedule` | Evaluation schedule | `"0 */15 * * * ?"` |
+| `enabled` | Enable/disable alert | `true` or `false` |
+| `source_display` | Column alias for display | `"error_count"` |
+| `source_name` | Column alias for API | `"error_count"` |
+| `description` | Human-readable description | `"Monitors idle cluster count"` |
 
 ## Alert Structure
 
@@ -194,12 +182,20 @@ To add a new alert:
    ```yaml
    alerts:
      your_alert_name:
+       enabled: true
        category: "your_category"
        threshold_value: 10
        cron_schedule: "0 */15 * * * ?"
        source_display: "your_column_name"
        source_name: "your_column_name"
        parent_path_suffix: "finops_alerts/your_category"
+       description: "A brief description of your alert"
+   ```
+4. Add to deployment list:
+   ```yaml
+   deployment:
+     alerts_to_deploy:
+       - your_alert_name
    ```
 
 ## Alert Types
@@ -236,15 +232,30 @@ To add a new alert:
 
 ## Deployment
 
-See [deployment guide](docs/deployment.md) for detailed instructions on deploying alerts using DABs.
+The Python deployment tool (`deploy.py`) provides a modern, cross-platform solution for deploying FinOps alerts:
+
+### Features
+- **Beautiful UI**: Rich, colorful output with tables and syntax highlighting
+- **Configuration Validation**: Comprehensive validation of YAML configuration
+- **Error Handling**: Robust error handling with clear error messages
+- **Cross-Platform**: Works on Windows, Mac, and Linux
+- **Interactive**: Confirms deployment before proceeding
+
+### Commands
+- `list-alerts`: Display all available alerts with their status
+- `validate`: Validate configuration file for errors
+- `deploy`: Deploy alerts to specified environment
+
+For detailed examples, see [examples.md](docs/examples.md).
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Add your alert configurations to the appropriate folder
-4. Update documentation as needed
-5. Submit a pull request
+4. Update configuration files as needed
+5. Test with `python3 deploy.py validate config/deployment.yaml`
+6. Submit a pull request
 
 ## License
 
