@@ -219,9 +219,29 @@ class FinOpsDeployer:
         
         self.console.print("✅ Configuration validation passed!", style="green")
     
-    def _generate_function_sql(self, env_config: EnvironmentConfig) -> str:
+    def _generate_function_sql(self, env_config: EnvironmentConfig, environment: str) -> str:
         """Generate SQL for the create_alert function."""
-        return f"""-- =============================================================================
+        # Read the function template file
+        function_file = "src/functions/create_alert.sql"
+        try:
+            function_sql = self._read_sql_file(function_file)
+            # Create a dummy alert config for function template replacement
+            dummy_alert_config = AlertConfig(
+                name="create_alert_function",
+                enabled=True,
+                category="functions",
+                threshold_value=0.0,
+                cron_schedule="0 */15 * * * ?",
+                source_display="value",
+                source_name="value",
+                parent_path_suffix="",
+                description="Base alert creation function"
+            )
+            function_sql = self._replace_template_variables(function_sql, env_config, dummy_alert_config, "create_alert_function", environment)
+            return function_sql
+        except DeploymentError as e:
+            # Fallback to generating SQL directly if template file not found
+            return f"""-- =============================================================================
 -- CREATE ALERT FUNCTION
 -- =============================================================================
 -- 
@@ -387,7 +407,7 @@ select
         try:
             # Step 1: Deploy function
             self.console.print("📦 Step 1: Deploying create_alert function...")
-            function_sql = self._generate_function_sql(env_config)
+            function_sql = self._generate_function_sql(env_config, target)
             
             self.console.print("SQL to execute:")
             syntax = Syntax(function_sql, "sql", theme="monokai")

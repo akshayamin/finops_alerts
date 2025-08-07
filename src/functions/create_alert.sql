@@ -49,7 +49,7 @@
 -- 
 -- =============================================================================
 
-create or replace function aa_catalog.dw_ops.create_alert(
+create or replace function {{CATALOG_NAME}}.{{SCHEMA_NAME}}.create_alert(
   -- Required parameters
   display_name string,
   query_text string, -- Example: 'select count(*) as ct from my_table'

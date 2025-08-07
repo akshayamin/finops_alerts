@@ -23,7 +23,7 @@ finops_alerts/
 │   └── deployment.yaml          # Main deployment configuration
 ├── src/                         # Source code
 │   ├── functions/               # SQL functions
-│   │   └── create_alert.sql     # Base alert creation function
+│   │   └── create_alert.sql     # Base alert creation function (uses template variables)
 │   └── finops/                  # FinOps specific alerts
 │       ├── cost_monitoring/     # Cost-related alerts
 │       ├── usage_monitoring/    # Usage-related alerts
@@ -200,6 +200,8 @@ Each FinOps alert consists of two files:
 ### Template Variables
 
 The SQL files use template variables that get replaced during deployment:
+
+**Note**: The `create_alert` function itself also uses template variables for catalog and schema names.
 
 | **Template Variable** | **Purpose** | **Config Source** |
 |----------------------|-------------|-------------------|
