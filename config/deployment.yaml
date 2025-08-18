@@ -94,7 +94,7 @@ alerts:
   idle_time:
     enabled: true                    # Set to false to disable this alert
     category: "usage_monitoring"
-    threshold_value: 10              # Alert when idle clusters > 10
+    threshold_value: 10              # Alert when idle cluster minutes > 10
     cron_schedule: "0 0 */1 * * ?"  # Every hour
     source_display: "idle_cluster_count"
     source_name: "idle_cluster_count"

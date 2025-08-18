@@ -49,53 +49,78 @@
 -- 
 -- =============================================================================
 
-create or replace function {{CATALOG_NAME}}.{{SCHEMA_NAME}}.create_alert(
-  -- Required parameters
-  display_name string,
-  query_text string, -- Example: 'select count(*) as ct from my_table'
-  warehouse_id string,
-  
-  -- Alert configuration
-  comparison_operator string default 'GREATER_THAN', -- Options: GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, EQUAL, NOT_EQUAL
-  threshold_value double default 0.0,
-  empty_result_state string default 'UNKNOWN',
-  
-  -- Notification settings
-  user_email string default null,
-  notify_on_ok boolean default true,
-  retrigger_seconds int default 0,
-  
-  -- Schedule settings
-  cron_schedule string default '0 */15 * * * ?',
-  timezone_id string default 'UTC',
-  pause_status string default 'UNPAUSED',
-  
-  -- Optional settings
-  parent_path string default '/Workspace/Users/',
-  source_aggregation string default 'FIRST',
-  source_display string default null, -- Example: 'ct' (should match column alias in query_text)
-  source_name string default null -- Example: 'ct' (should match column alias in query_text)
+CREATE OR REPLACE FUNCTION create_alert(
+  -- Required
+  display_name STRING,
+  query_text STRING,
+  warehouse_id STRING,
+
+  -- Alert config
+  comparison_operator STRING DEFAULT 'GREATER_THAN',
+  threshold_value DOUBLE DEFAULT 0.0,
+  empty_result_state STRING DEFAULT 'UNKNOWN',
+
+  -- Notification
+  user_email STRING DEFAULT NULL,
+  notify_on_ok BOOLEAN DEFAULT TRUE,
+  retrigger_seconds INT DEFAULT 0,
+
+  -- Schedule
+  cron_schedule STRING DEFAULT '0 */15 * * * ?',
+  timezone_id STRING DEFAULT 'UTC',
+  pause_status STRING DEFAULT 'UNPAUSED',
+
+  -- Optional
+  parent_path STRING DEFAULT '/Workspace/Users/',
+  source_aggregation STRING DEFAULT 'FIRST',
+  source_display STRING DEFAULT 'value',
+  source_name STRING DEFAULT 'value'
 )
-comment 'Creates a Databricks alert with parameterized configuration. Allows DBAs to create alerts using SQL queries with flexible notification and scheduling options.'
-return
-select
+COMMENT 'Creates a Databricks alert with parameterized configuration. Uses JSON construction via structs.'
+RETURN
+WITH payload AS (
+  SELECT
+    to_json(
+      named_struct(
+        'display_name',         display_name,
+        'query_text',           query_text,          -- safely escaped by to_json
+        'parent_path',          parent_path,
+        'warehouse_id',         warehouse_id,
+        'evaluation', named_struct(
+          'comparison_operator', comparison_operator,
+          'empty_result_state',  empty_result_state,
+          'notification', named_struct(
+            'notify_on_ok',      notify_on_ok,
+            'retrigger_seconds', retrigger_seconds,
+            'subscriptions',
+              CASE
+                WHEN user_email IS NOT NULL
+                  THEN array(named_struct('user_email', user_email))
+                ELSE array()   -- empty array if no email
+              END
+          ),
+          'source', named_struct(
+            'aggregation', source_aggregation,
+            'display',     source_display,
+            'name',        source_name
+          ),
+          'threshold', named_struct(
+            'value', named_struct('double_value', threshold_value)
+          )
+        ),
+        'schedule', named_struct(
+          'pause_status',         pause_status,
+          'quartz_cron_schedule', cron_schedule,
+          'timezone_id',          timezone_id
+        )
+      )
+    ) AS json_body
+)
+SELECT
   http_request(
-    conn => 'aa_databricks_api',
+    conn   => 'databricks_api',
     method => 'POST',
-    path => '2.0/alerts',
-    json => concat(
-      '{"display_name":"', display_name, '",',
-      '"query_text":"', query_text, '",',
-      '"parent_path":"', parent_path, '",',
-      '"warehouse_id":"', warehouse_id, '",',
-      '"evaluation":{"comparison_operator":"', comparison_operator, '",',
-      '"empty_result_state":"', empty_result_state, '",',
-      '"notification":{"notify_on_ok":', case when notify_on_ok then 'true' else 'false' end, ',"retrigger_seconds":', cast(retrigger_seconds as string), ',',
-      '"subscriptions":[',
-      case when user_email is not null then concat('{"user_email":"', user_email, '"}') else '' end,
-      ']}',
-      ',"source":{"aggregation":"', source_aggregation, '","display":"', coalesce(source_display, 'value'), '","name":"', coalesce(source_name, 'value'), '"}',
-      ',"threshold":{"value":{"double_value":', cast(threshold_value as string), '}}}',
-      ',"schedule":{"pause_status":"', pause_status, '","quartz_cron_schedule":"', cron_schedule, '","timezone_id":"', timezone_id, '"}}'
-    )
-  ).text as resp; 
+    path   => '2.0/alerts',
+    json   => json_body
+  ).text AS resp
+FROM payload;
